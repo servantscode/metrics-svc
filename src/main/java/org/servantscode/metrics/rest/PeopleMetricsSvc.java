@@ -5,11 +5,10 @@ import org.apache.logging.log4j.Logger;
 import org.servantscode.metrics.MetricsResponse;
 import org.servantscode.metrics.db.PeopleMetricsDB;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
+import javax.ws.rs.*;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.servantscode.commons.StringUtils.isEmpty;
 
 @Path("/metrics/people")
 public class PeopleMetricsSvc {
@@ -19,10 +18,44 @@ public class PeopleMetricsSvc {
     public MetricsResponse getAgeDemographics() {
         try {
             LOG.debug("Retrieving age demographics.");
-            MetricsResponse resp = new PeopleMetricsDB().getAges();
-            return resp;
+            return new PeopleMetricsDB().getAges();
         } catch (Throwable t) {
-            LOG.error("Failed to generate metrics.", t);
+            LOG.error("Failed to generate demographic metrics.", t);
+            throw t;
+        }
+    }
+
+    @GET @Path("/membership") @Produces(APPLICATION_JSON)
+    public MetricsResponse getMembershipLongevity() {
+        try {
+            LOG.debug("Retrieving membership longevity.");
+            return new PeopleMetricsDB().getMembershipLength();
+        } catch (Throwable t) {
+            LOG.error("Failed to generate longevity metrics.", t);
+            throw t;
+        }
+    }
+
+    @GET @Path("/registration{timescale:(/(year|month))?}") @Produces(APPLICATION_JSON)
+    public MetricsResponse getRegistrations(@PathParam("timescale") String timescale) {
+        if(isEmpty(timescale)) {
+            timescale = "year";
+        } else {
+            timescale = timescale.substring(1);
+        }
+
+        try {
+            LOG.debug("Retrieving new registrations by " + timescale);
+
+            if(timescale.equalsIgnoreCase("year"))
+                return new PeopleMetricsDB().getNewYearlyMembership();
+
+            if(timescale.equalsIgnoreCase("month"))
+                return new PeopleMetricsDB().getNewMonthlyMembership();
+
+            throw new BadRequestException();
+        } catch (Throwable t) {
+            LOG.error("Failed to generate longevity metrics.", t);
             throw t;
         }
     }
