@@ -8,18 +8,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
-public class PeopleMetricsDB extends DBAccess {
-    private static final int MAX_AGE=200;
+public class PeopleMetricsDB extends AbstractMetricsDB {
+    private static final int MAX_AGE = 200;
 
     public MetricsResponse getAges() {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT birthdate FROM people");
-            List<DateRangeBucket> buckets = generateAgeDivisions();
+            List<AbstractBucket> buckets = generateAgeDivisions();
             return generateResults(stmt, buckets);
         } catch (SQLException e) {
             throw new RuntimeException("Could generate age demographics", e);
@@ -29,7 +26,7 @@ public class PeopleMetricsDB extends DBAccess {
     public MetricsResponse getMembershipLength() {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
-            List<DateRangeBucket> buckets = generateLongevityDivisions();
+            List<AbstractBucket> buckets = generateLongevityDivisions();
             return generateResults(stmt, buckets);
         } catch (SQLException e) {
             throw new RuntimeException("Could generate age demographics", e);
@@ -39,8 +36,8 @@ public class PeopleMetricsDB extends DBAccess {
     public MetricsResponse getNewYearlyMembership() {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
-            List<DateRangeBucket> buckets = generateYearlyDivisions(20);
-            return generateResults(stmt, buckets);
+            List<AbstractBucket> buckets = generateYearlyDivisions(20);
+            return generateResults(stmt, buckets, true);
         } catch (SQLException e) {
             throw new RuntimeException("Could generate age demographics", e);
         }
@@ -49,8 +46,8 @@ public class PeopleMetricsDB extends DBAccess {
     public MetricsResponse getNewMonthlyMembership() {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
-            List<DateRangeBucket> buckets = generateMonthlyDivisions(24);
-            return generateResults(stmt, buckets);
+            List<AbstractBucket> buckets = generateMonthlyDivisions(24);
+            return generateResults(stmt, buckets, true);
         } catch (SQLException e) {
             throw new RuntimeException("Could generate age demographics", e);
         }
@@ -58,46 +55,25 @@ public class PeopleMetricsDB extends DBAccess {
 
 
     // ----- Private -----
-    class DateRangeBucket {
-        String description;
+    class DateRangeBucket extends AbstractBucket {
         Date startDate;
-        int count;
 
         private DateRangeBucket(String description, Date startDate) {
-            this.description = description;
+            super(description);
             this.startDate = startDate;
-            this.count = 0;
+        }
+
+        @Override
+        public boolean itemFits(ResultSet rs) throws SQLException {
+            Date d = rs.getDate(1);
+            if(d == null) return false;
+            return startDate.before(d);
         }
     }
 
-    private MetricsResponse generateResults(PreparedStatement stmt, List<DateRangeBucket> buckets) throws SQLException {
-        int totalCount = 0;
-        try(ResultSet rs = stmt.executeQuery()) {
-            while(rs.next()) {
-                Date d = rs.getDate(1);
-                totalCount++;
 
-                if(d == null) break;
-
-                for(DateRangeBucket bucket: buckets) {
-                    if(bucket.startDate.before(d)) {
-                        bucket.count++;
-                        break;
-                    }
-                }
-            }
-
-            MetricsResponse resp = new MetricsResponse();
-            resp.setTotalRecords(totalCount);
-            for(DateRangeBucket bucket: buckets)
-                resp.addData(bucket.description, bucket.count);
-
-            return resp;
-        }
-    }
-
-    private List<DateRangeBucket> generateYearlyDivisions(int numberOfYears) {
-        LinkedList<DateRangeBucket> buckets = new LinkedList<>();
+    private List<AbstractBucket> generateYearlyDivisions(int numberOfYears) {
+        LinkedList<AbstractBucket> buckets = new LinkedList<>();
 
         LocalDate startOfYear = new LocalDate().withDayOfYear(1);
         buckets.add(new DateRangeBucket(Integer.toString(startOfYear.getYear()), startOfYear.toDate()));
@@ -109,8 +85,8 @@ public class PeopleMetricsDB extends DBAccess {
         return buckets;
     }
 
-    private List<DateRangeBucket> generateMonthlyDivisions(int numberOfMonths) {
-        LinkedList<DateRangeBucket> buckets = new LinkedList<>();
+    private List<AbstractBucket> generateMonthlyDivisions(int numberOfMonths) {
+        LinkedList<AbstractBucket> buckets = new LinkedList<>();
 
         LocalDate startOfMonth = new LocalDate().withDayOfMonth(1);
         for(int i=0; i<numberOfMonths; i++) {
@@ -121,8 +97,8 @@ public class PeopleMetricsDB extends DBAccess {
         return buckets;
     }
 
-    private ArrayList<DateRangeBucket> generateLongevityDivisions() {
-        ArrayList<DateRangeBucket> buckets = new ArrayList<>(9);
+    private ArrayList<AbstractBucket> generateLongevityDivisions() {
+        ArrayList<AbstractBucket> buckets = new ArrayList<>(8);
 
         LocalDate now = new LocalDate();
         buckets.add(new DateRangeBucket("<1", now.plusYears(-1).toDate()));
@@ -137,8 +113,8 @@ public class PeopleMetricsDB extends DBAccess {
         return buckets;
     }
 
-    private ArrayList<DateRangeBucket> generateAgeDivisions() {
-        ArrayList<DateRangeBucket> buckets = new ArrayList<>(9);
+    private ArrayList<AbstractBucket> generateAgeDivisions() {
+        ArrayList<AbstractBucket> buckets = new ArrayList<>(9);
 
         LocalDate now = new LocalDate();
         buckets.add(new DateRangeBucket("0-6", now.plusYears(-7).toDate()));

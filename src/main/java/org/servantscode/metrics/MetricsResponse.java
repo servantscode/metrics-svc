@@ -8,19 +8,19 @@ public class MetricsResponse {
     private List<MetricEntry> data = new ArrayList<>();
 
     public class MetricEntry {
-        String data;
-        int count;
+        String name;
+        int value;
 
-        public MetricEntry(String data, int count) {
-            this.data = data;
-            this.count = count;
+        public MetricEntry(String name, int value) {
+            this.name = name;
+            this.value = value;
         }
 
-        public String getData() { return data; }
-        public void setData(String data) { this.data = data; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
 
-        public int getCount() { return count; }
-        public void setCount(int count) { this.count = count; }
+        public int getValue() { return value; }
+        public void setValue(int value) { this.value = value; }
     }
 
     public void addData(String data, int count) {
