@@ -72,7 +72,7 @@ public class PeopleMetricsDB extends AbstractMetricsDB {
             if(d == null)
                 return false;
 
-            LocalDate date = d.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalDate date = Instant.ofEpochMilli(d.getTime()).atZone(ZoneId.systemDefault()).toLocalDate();
             return startDate.isBefore(date);
         }
     }
