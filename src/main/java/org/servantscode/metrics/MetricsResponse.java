@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MetricsResponse {
-    private int totalRecords;
     private List<MetricEntry> data = new ArrayList<>();
 
     public class MetricEntry {
@@ -28,9 +27,6 @@ public class MetricsResponse {
     }
 
     // ----- Accessors -----
-    public int getTotalRecords() { return totalRecords; }
-    public void setTotalRecords(int totalRecords) { this.totalRecords = totalRecords; }
-
     public List<MetricEntry> getData() { return data; }
     public void setData(List<MetricEntry> data) { this.data = data; }
 }

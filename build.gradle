@@ -16,7 +16,6 @@ repositories {
 
 dependencies {
     // ----- Local -----
-    implementation group: 'joda-time', name: 'joda-time', version: '2.10.1'
 
     // ----- Commons -----
     implementation group: 'org.servantscode', name: 'java-commons', version: '1.0'

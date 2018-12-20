@@ -1,7 +1,7 @@
 package org.servantscode.metrics.db;
 
-import org.joda.time.LocalDate;
 import org.servantscode.metrics.MetricsResponse;
+import org.servantscode.metrics.util.AbstractBucket;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

@@ -1,4 +1,4 @@
-package org.servantscode.metrics.db;
+package org.servantscode.metrics.util;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
