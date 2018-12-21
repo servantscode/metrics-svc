@@ -124,7 +124,7 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
             }
 
             ArrayList<MonthlyDonations> list = new ArrayList<>(donations.values());
-            list.sort((a, b) -> a.getMonth().compareTo(b.getMonth()));
+            list.sort((a, b) -> b.getMonth().compareTo(a.getMonth())); //Descending order
             return list;
         }
     }
