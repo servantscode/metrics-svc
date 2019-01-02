@@ -20,9 +20,10 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
 
     public PledgeMetricsResponse getPledgeStatuses() {
         try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT d.family_id, SUM(amount) AS total_donations, total_pledge FROM donations d " +
-                            "FULL OUTER JOIN pledges p ON d.family_id=p.family_id AND pledge_start < NOW() and pledge_end > NOW() " +
-                            "AND date >= ? GROUP BY d.family_id, total_pledge");
+            PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
+                            "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? GROUP BY family_id) d " +
+                            "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() GROUP BY family_id) p " +
+                            "ON d.family_id=p.family_id");
 
             stmt.setDate(1, convert(LocalDate.now().withDayOfYear(1)));
 
@@ -39,9 +40,11 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
 
     public List<MonthlyDonations> getMonthlyDonations(int months) {
         try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, total_pledge <> 0 AS pledged, date_trunc('month', date) as month " +
-                    "FROM donations d LEFT JOIN pledges p ON d.family_id=p.family_id AND date < NOW() and date > NOW() - interval '" + months + " months' " +
-                    "GROUP BY pledged, month ORDER BY month");
+            PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
+                            "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start LIMIT 1) p " +
+                            "ON TRUE " +
+                            "WHERE date > date_trunc('month', NOW() - interval '" + months + " months') " +
+                            "GROUP BY month, p.pledged ORDER BY month");
 
             return generateResults(stmt);
         } catch (SQLException e) {
