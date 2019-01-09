@@ -1,9 +1,12 @@
-version: '3'
+version: '2.4'
 services:
   metrics-svc-svc:
     image: "servantscode/metrics-svc:latest"
     ports:
      - "82:8080"
+    mem_limit: 128m
+    environment:
+      ES_JAVA_OPTS: "-Xmx128m -Xms128m"
      
 networks:
   default:
