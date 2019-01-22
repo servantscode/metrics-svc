@@ -12,8 +12,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.Month;
-import java.util.*;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 public class PledgeMetricsDB extends AbstractMetricsDB {
     private static final Logger LOG = LogManager.getLogger(PledgeMetricsDB.class);
@@ -107,12 +110,12 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
 
     private List<MonthlyDonations> generateResults(PreparedStatement stmt) throws SQLException {
         try (ResultSet rs = stmt.executeQuery()) {
-            HashMap<Date, MonthlyDonations> donations = new HashMap<>();
+            HashMap<ZonedDateTime, MonthlyDonations> donations = new HashMap<>();
 
             while (rs.next()) {
                 float amount = rs.getFloat("total_donations");
                 boolean pledged = rs.getBoolean("pledged");
-                Date monthStart = rs.getDate("month");
+                ZonedDateTime monthStart = convert(rs.getTimestamp("month"));
 
                 MonthlyDonations monthly;
                 if((monthly = donations.get(monthStart)) == null)

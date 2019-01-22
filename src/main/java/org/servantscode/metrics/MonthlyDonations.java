@@ -1,21 +1,19 @@
 package org.servantscode.metrics;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.ZonedDateTime;
 
 public class MonthlyDonations {
     private static final DateFormat df = new SimpleDateFormat("MMM yyyy");
 
-    private Date month;
+    private ZonedDateTime month;
     private String label;
     private float totalDonations;
     private float pledged;
     private float unpledged;
 
-    public MonthlyDonations(Date month) {
+    public MonthlyDonations(ZonedDateTime month) {
         if(month == null)
             throw new IllegalArgumentException();
 
@@ -36,8 +34,8 @@ public class MonthlyDonations {
     }
 
     // ----- Accessors -----
-    public Date getMonth() { return month; }
-    public void setMonth(Date month) { this.month = month; }
+    public ZonedDateTime getMonth() { return month; }
+    public void setMonth(ZonedDateTime month) { this.month = month; }
 
     public String getLabel() { return label; }
     public void setLabel(String label) { this.label = label; }
