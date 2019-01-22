@@ -28,7 +28,7 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
                             "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() GROUP BY family_id) p " +
                             "ON d.family_id=p.family_id");
 
-            stmt.setDate(1, convert(LocalDate.now().withDayOfYear(1)));
+            stmt.setTimestamp(1, convert(ZonedDateTime.now().withDayOfYear(1)));
 
             List<AbstractBucket> buckets = generateDivisions();
             PledgeCollector coll = new PledgeCollector();

@@ -1,11 +1,9 @@
 package org.servantscode.metrics;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class MonthlyDonations {
-    private static final DateFormat df = new SimpleDateFormat("MMM yyyy");
 
     private ZonedDateTime month;
     private String label;
@@ -18,7 +16,7 @@ public class MonthlyDonations {
             throw new IllegalArgumentException();
 
         this.month = month;
-        this.label = df.format(month);
+        this.label = month.format(DateTimeFormatter.ofPattern("MMM yyyy"));
     }
 
     public void addPledged(float amount) {
