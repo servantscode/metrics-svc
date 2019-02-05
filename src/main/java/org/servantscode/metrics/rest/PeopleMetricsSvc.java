@@ -2,6 +2,7 @@ package org.servantscode.metrics.rest;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.servantscode.commons.rest.SCServiceBase;
 import org.servantscode.metrics.MetricsResponse;
 import org.servantscode.metrics.db.PeopleMetricsDB;
 
@@ -11,11 +12,12 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.servantscode.commons.StringUtils.isEmpty;
 
 @Path("/metrics/people")
-public class PeopleMetricsSvc {
+public class PeopleMetricsSvc extends SCServiceBase {
     private static final Logger LOG = LogManager.getLogger(PeopleMetricsSvc.class);
 
     @GET @Path("/age") @Produces(APPLICATION_JSON)
     public MetricsResponse getAgeDemographics() {
+        verifyUserAccess("person.metrics");
         try {
             LOG.debug("Retrieving age demographics.");
             return new PeopleMetricsDB().getAges();
@@ -27,6 +29,7 @@ public class PeopleMetricsSvc {
 
     @GET @Path("/membership") @Produces(APPLICATION_JSON)
     public MetricsResponse getMembershipLongevity() {
+        verifyUserAccess("person.metrics");
         try {
             LOG.debug("Retrieving membership longevity.");
             return new PeopleMetricsDB().getMembershipLength();
@@ -38,6 +41,7 @@ public class PeopleMetricsSvc {
 
     @GET @Path("/registration{timescale:(/(year|month))?}") @Produces(APPLICATION_JSON)
     public MetricsResponse getRegistrations(@PathParam("timescale") String timescale) {
+        verifyUserAccess("person.metrics");
         if(isEmpty(timescale)) {
             timescale = "year";
         } else {
