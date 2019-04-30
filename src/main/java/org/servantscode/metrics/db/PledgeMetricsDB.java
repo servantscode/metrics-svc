@@ -55,6 +55,22 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         }
     }
 
+    public List<MonthlyDonations> getMonthlyDonationsForFund(int months, int fundId) {
+        try (Connection conn = getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
+                    "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start LIMIT 1) p " +
+                    "ON TRUE " +
+                    "WHERE fund_id=? AND date > date_trunc('month', NOW() - interval '" + months + " months') " +
+                    "GROUP BY month, p.pledged ORDER BY month");
+
+            stmt.setInt(1, fundId);
+
+            return generateResults(stmt);
+        } catch (SQLException e) {
+            throw new RuntimeException("Could generate age demographics", e);
+        }
+    }
+
     // ----- Private -----
     class PledgeCurrentBucket extends AbstractBucket {
         private int percentStart;
