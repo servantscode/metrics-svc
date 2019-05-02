@@ -32,6 +32,18 @@ public class PlegeMetricsSvc extends SCServiceBase {
         }
     }
 
+    @GET @Path("/status/fund/{fundId}") @Produces(APPLICATION_JSON)
+    public PledgeMetricsResponse getPledgeMetricsByFund(@PathParam("fundId") int fundId) {
+        verifyUserAccess("pledge.metrics");
+        try {
+            LOG.debug("Retrieving pledge metrics.");
+            return new PledgeMetricsDB().getPledgeStatusesForFund(fundId);
+        } catch (Throwable t) {
+            LOG.error("Failed to generate pledge metrics.", t);
+            throw t;
+        }
+    }
+
     @GET @Path("/monthly") @Produces({APPLICATION_JSON, TEXT_PLAIN, TEXT_CSV})
     public Response getMonthlyDonations(@QueryParam("months") @DefaultValue("13") int months,
                                         @HeaderParam("Accept") String responseType) {

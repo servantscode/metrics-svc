@@ -41,6 +41,27 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         }
     }
 
+    public PledgeMetricsResponse getPledgeStatusesForFund(int fundId) {
+        try (Connection conn = getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
+                    "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? GROUP BY family_id) d " +
+                    "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE fund_id=? AND pledge_start < NOW() AND pledge_end > NOW() GROUP BY family_id) p " +
+                    "ON d.family_id=p.family_id");
+
+            stmt.setTimestamp(1, convert(ZonedDateTime.now().withDayOfYear(1)));
+            stmt.setInt(2, fundId);
+
+            List<AbstractBucket> buckets = generateDivisions();
+            PledgeCollector coll = new PledgeCollector();
+            PledgeMetricsResponse resp = (PledgeMetricsResponse) generateResults(stmt, buckets, false, new PledgeMetricsResponse(), coll);
+            resp.setDonationsToDate(coll.donations);
+            resp.setTotalPledges(coll.pledges);
+            return resp;
+        } catch (SQLException e) {
+            throw new RuntimeException("Could generate age demographics", e);
+        }
+    }
+
     public List<MonthlyDonations> getMonthlyDonations(int months) {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
