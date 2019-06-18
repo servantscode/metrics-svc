@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.servantscode.commons.rest.SCServiceBase;
 import org.servantscode.metrics.MinistyEnrollmentStatistics;
-import org.servantscode.metrics.db.FamilyMetricsDB;
 import org.servantscode.metrics.db.MinistryMetricsDB;
 
 import javax.ws.rs.GET;

@@ -3,7 +3,6 @@ package org.servantscode.metrics.db;
 import org.servantscode.commons.db.DBAccess;
 import org.servantscode.metrics.MinistyEnrollmentStatistics;
 
-import javax.xml.ws.Response;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
