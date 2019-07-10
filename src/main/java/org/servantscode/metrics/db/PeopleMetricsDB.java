@@ -1,5 +1,6 @@
 package org.servantscode.metrics.db;
 
+import org.servantscode.commons.search.QueryBuilder;
 import org.servantscode.metrics.MetricsResponse;
 import org.servantscode.metrics.util.AbstractBucket;
 
@@ -17,8 +18,10 @@ public class PeopleMetricsDB extends AbstractMetricsDB {
     private static final int MAX_AGE = 200;
 
     public MetricsResponse getAges() {
-        try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT birthdate FROM people");
+        QueryBuilder query = select("birthdate").from("people").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn)) {
+//            PreparedStatement stmt = conn.prepareStatement("SELECT birthdate FROM people");
             List<AbstractBucket> buckets = generateAgeDivisions();
             return generateResults(stmt, buckets);
         } catch (SQLException e) {
@@ -27,8 +30,10 @@ public class PeopleMetricsDB extends AbstractMetricsDB {
     }
 
     public MetricsResponse getMembershipLength() {
-        try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
+        QueryBuilder query = select("member_since").from("people").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn)) {
+//            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
             List<AbstractBucket> buckets = generateLongevityDivisions();
             return generateResults(stmt, buckets);
         } catch (SQLException e) {
@@ -37,8 +42,10 @@ public class PeopleMetricsDB extends AbstractMetricsDB {
     }
 
     public MetricsResponse getNewYearlyMembership() {
-        try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
+        QueryBuilder query = select("member_since").from("people").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn)) {
+//            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
             List<AbstractBucket> buckets = generateYearlyDivisions(20);
             return generateResults(stmt, buckets, true);
         } catch (SQLException e) {
@@ -47,8 +54,10 @@ public class PeopleMetricsDB extends AbstractMetricsDB {
     }
 
     public MetricsResponse getNewMonthlyMembership() {
-        try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
+        QueryBuilder query = select("member_since").from("people").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn)) {
+//            PreparedStatement stmt = conn.prepareStatement("SELECT member_since FROM people");
             List<AbstractBucket> buckets = generateMonthlyDivisions(24);
             return generateResults(stmt, buckets, true);
         } catch (SQLException e) {

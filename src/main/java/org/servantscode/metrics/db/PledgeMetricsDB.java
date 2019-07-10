@@ -2,6 +2,9 @@ package org.servantscode.metrics.db;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.graalvm.compiler.core.common.type.ArithmeticOpTable;
+import org.servantscode.commons.search.QueryBuilder;
+import org.servantscode.commons.security.OrganizationContext;
 import org.servantscode.metrics.MonthlyDonations;
 import org.servantscode.metrics.PledgeMetricsResponse;
 import org.servantscode.metrics.util.AbstractBucket;
@@ -24,11 +27,13 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     public PledgeMetricsResponse getPledgeStatuses() {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
-                            "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? GROUP BY family_id) d " +
-                            "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() GROUP BY family_id) p " +
+                            "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? AND org_id =? GROUP BY family_id) d " +
+                            "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() AND org_id=? GROUP BY family_id) p " +
                             "ON d.family_id=p.family_id");
 
             stmt.setTimestamp(1, convert(ZonedDateTime.now().withDayOfYear(1)));
+            stmt.setInt(2, OrganizationContext.orgId());
+            stmt.setInt(3, OrganizationContext.orgId());
 
             List<AbstractBucket> buckets = generateDivisions();
             PledgeCollector coll = new PledgeCollector();
@@ -44,12 +49,14 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     public PledgeMetricsResponse getPledgeStatusesForFund(int fundId) {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
-                    "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? GROUP BY family_id) d " +
-                    "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE fund_id=? AND pledge_start < NOW() AND pledge_end > NOW() GROUP BY family_id) p " +
+                    "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? AND org_id=? GROUP BY family_id) d " +
+                    "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE fund_id=? AND pledge_start < NOW() AND pledge_end > NOW() AND org_id=? GROUP BY family_id) p " +
                     "ON d.family_id=p.family_id");
 
             stmt.setTimestamp(1, convert(ZonedDateTime.now().withDayOfYear(1)));
-            stmt.setInt(2, fundId);
+            stmt.setInt(2, OrganizationContext.orgId());
+            stmt.setInt(3, fundId);
+            stmt.setInt(4, OrganizationContext.orgId());
 
             List<AbstractBucket> buckets = generateDivisions();
             PledgeCollector coll = new PledgeCollector();
@@ -65,10 +72,13 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     public List<MonthlyDonations> getMonthlyDonations(int months) {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
-                            "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start LIMIT 1) p " +
+                            "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start AND org_id=? LIMIT 1) p " +
                             "ON TRUE " +
-                            "WHERE date > date_trunc('month', NOW() - interval '" + months + " months') " +
+                            "WHERE date > date_trunc('month', NOW() - interval '" + months + " months') AND d.org_id=? " +
                             "GROUP BY month, p.pledged ORDER BY month");
+
+            stmt.setInt(1, OrganizationContext.orgId());
+            stmt.setInt(2, OrganizationContext.orgId());
 
             return generateResults(stmt);
         } catch (SQLException e) {
@@ -79,12 +89,14 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     public List<MonthlyDonations> getMonthlyDonationsForFund(int months, int fundId) {
         try (Connection conn = getConnection()) {
             PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
-                    "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start LIMIT 1) p " +
+                    "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start AND org_id=? LIMIT 1) p " +
                     "ON TRUE " +
-                    "WHERE fund_id=? AND date > date_trunc('month', NOW() - interval '" + months + " months') " +
+                    "WHERE fund_id=? AND date > date_trunc('month', NOW() - interval '" + months + " months') AND d.org_id=? " +
                     "GROUP BY month, p.pledged ORDER BY month");
 
-            stmt.setInt(1, fundId);
+            stmt.setInt(1, OrganizationContext.orgId());
+            stmt.setInt(2, fundId);
+            stmt.setInt(3, OrganizationContext.orgId());
 
             return generateResults(stmt);
         } catch (SQLException e) {

@@ -1,5 +1,6 @@
 package org.servantscode.metrics.db;
 
+import org.servantscode.commons.search.QueryBuilder;
 import org.servantscode.metrics.MetricsResponse;
 import org.servantscode.metrics.util.AbstractBucket;
 
@@ -12,8 +13,10 @@ import java.util.*;
 public class FamilyMetricsDB extends AbstractMetricsDB {
 
     public MetricsResponse getFamilySizes() {
-        try (Connection conn = getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement("SELECT count(1) FROM people GROUP BY family_id");
+        QueryBuilder query = count().from("people").inOrg().groupBy("family_id");
+        try (Connection conn = getConnection();
+            PreparedStatement stmt = query.prepareStatement(conn)) {
+
             List<AbstractBucket> buckets = generateFamilySizeBuckets();
             return generateResults(stmt, buckets, false);
         } catch (SQLException e) {
