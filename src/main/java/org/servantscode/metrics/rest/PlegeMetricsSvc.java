@@ -37,7 +37,7 @@ public class PlegeMetricsSvc extends SCServiceBase {
         verifyUserAccess("pledge.metrics");
         try {
             LOG.debug("Retrieving pledge metrics.");
-            return new PledgeMetricsDB().getPledgeStatusesForFund(fundId);
+            return new PledgeMetricsDB().getPledgeStatuses(fundId);
         } catch (Throwable t) {
             LOG.error("Failed to generate pledge metrics.", t);
             throw t;
@@ -73,7 +73,7 @@ public class PlegeMetricsSvc extends SCServiceBase {
 
         try {
             LOG.debug("Retrieving monthly donation metrics.");
-            List<MonthlyDonations> donations = new PledgeMetricsDB().getMonthlyDonationsForFund(months, fundId);
+            List<MonthlyDonations> donations = new PledgeMetricsDB().getMonthlyDonations(months, fundId);
 
             Object retVal = generateCSV? new ReportListStreamingOutput<>(donations): donations;
             return Response.ok(retVal).build();
