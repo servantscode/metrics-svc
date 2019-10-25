@@ -26,34 +26,10 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
 
     public PledgeMetricsResponse getPledgeStatuses() {
         return getPledgeStatuses(0);
-//        QueryBuilder mainSelection = select("family_id", "SUM(amount) AS total_donations").from("donations")
-//                        .where("date >= ?", convert(ZonedDateTime.now().withDayOfYear(1)))
-//                        .inOrg().groupBy("family_id");
-//        QueryBuilder joinedPledges = select("family_id", "SUM(total_pledge) AS total_pledge").from("pledges")
-//                .where("pledge_start < NOW()").where("pledge_end > NOW()").inOrg().groupBy("family_id");
-//        QueryBuilder query = select("COALESCE(d.family_id, p.family_id) AS family_id", "d.total_donations", "p.total_pledge")
-//                .from(mainSelection, "d")
-//                .fullOuterJoin(joinedPledges, "p", "d.family_id=p.family_id");
-//        try (Connection conn = getConnection();
-//             PreparedStatement stmt = query.prepareStatement(conn)) {
-////            PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
-////                            "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? AND org_id =? GROUP BY family_id) d " +
-////                            "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() AND org_id=? GROUP BY family_id) p " +
-////                            "ON d.family_id=p.family_id");
-////
-////            stmt.setTimestamp(1, convert(ZonedDateTime.now().withDayOfYear(1)));
-////            stmt.setInt(2, OrganizationContext.orgId());
-////            stmt.setInt(3, OrganizationContext.orgId());
-//
-//            List<AbstractBucket> buckets = generateDivisions();
-//            PledgeCollector coll = new PledgeCollector();
-//            PledgeMetricsResponse resp = (PledgeMetricsResponse) generateResults(stmt, buckets, false, new PledgeMetricsResponse(), coll);
-//            resp.setDonationsToDate(coll.donations);
-//            resp.setTotalPledges(coll.pledges);
-//            return resp;
-//        } catch (SQLException e) {
-//            throw new RuntimeException("Could generate age demographics", e);
-//        }
+//            PreparedStatement stmt = conn.prepareStatement("SELECT COALESCE(d.family_id, p.family_id) AS family_id, d.total_donations, p.total_pledge " +
+//                            "FROM (SELECT family_id, SUM(amount) AS total_donations FROM donations WHERE date > ? AND org_id =? GROUP BY family_id) d " +
+//                            "FULL OUTER JOIN (SELECT family_id, SUM(total_pledge) AS total_pledge FROM pledges WHERE pledge_start < NOW() AND pledge_end > NOW() AND org_id=? GROUP BY family_id) p " +
+//                            "ON d.family_id=p.family_id");
     }
 
     public PledgeMetricsResponse getPledgeStatuses(int fundId) {
@@ -94,32 +70,25 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         }
     }
 
-    public List<MonthlyDonations> getMonthlyDonations(int months) {
-        return getMonthlyDonations(months, 0);
-    }
+    public List<MonthlyDonations> getConsolodatedDonations(int windows, String timeWindow, int fundId) {
+        int months = windows;
+        if(timeWindow.equalsIgnoreCase("quarter"))
+            months *= 3;
+        if(timeWindow.equalsIgnoreCase("year"))
+            months *= 12;
 
-    public List<MonthlyDonations> getMonthlyDonations(int months, int fundId) {
-        QueryBuilder query = select("SUM(amount) AS total_donations", "p.pledged", "date_trunc('month', date) as month").from("donations d")
+        QueryBuilder query = select("SUM(amount) AS total_donations", "p.pledged", String.format("date_trunc('%s', date) as time_window", timeWindow)).from("donations d")
                 .leftJoinLateral(select("'t' AS pledged").from("pledges")
                                         .where("family_id=d.family_id").where("fund_id=d.fund_id").where("date <= pledge_end").where("date >= pledge_start")
                                         .inOrg().limit(1),
                            "p", "TRUE")
-                .where("date > date_trunc('month', NOW() - interval '" + months + " months')").inOrg();
+                .where(String.format("date > date_trunc('%s', NOW() - interval '%d months')", timeWindow, months)).inOrg();
         if(fundId > 0)
             query.with("fund_id", fundId);
-        query.groupBy("month", "p.pledged").sort("month");
+        query.groupBy("time_window", "p.pledged").sort("time_window");
         try (Connection conn = getConnection();
              PreparedStatement stmt = query.prepareStatement(conn);
              ResultSet rs = stmt.executeQuery()) {
-//            PreparedStatement stmt = conn.prepareStatement("SELECT SUM(amount) AS total_donations, p.pledged, date_trunc('month', date) as month FROM donations d " +
-//                    "LEFT JOIN LATERAL (SELECT 't' as pledged FROM pledges WHERE family_id=d.family_id AND date < pledge_end AND date > pledge_start AND org_id=? LIMIT 1) p " +
-//                    "ON TRUE " +
-//                    "WHERE fund_id=? AND date > date_trunc('month', NOW() - interval '" + months + " months') AND d.org_id=? " +
-//                    "GROUP BY month, p.pledged ORDER BY month");
-
-//            stmt.setInt(1, OrganizationContext.orgId());
-//            stmt.setInt(2, fundId);
-//            stmt.setInt(3, OrganizationContext.orgId());
 
             return generateResults(rs);
         } catch (SQLException e) {
@@ -191,7 +160,7 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         while (rs.next()) {
             float amount = rs.getFloat("total_donations");
             boolean pledged = rs.getBoolean("pledged");
-            ZonedDateTime monthStart = convert(rs.getTimestamp("month"));
+            ZonedDateTime monthStart = convert(rs.getTimestamp("time_window"));
 
             MonthlyDonations monthly;
             if((monthly = donations.get(monthStart)) == null)
