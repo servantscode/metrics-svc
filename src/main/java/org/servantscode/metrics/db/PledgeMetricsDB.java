@@ -29,7 +29,7 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     }
 
     public PledgeMetricsResponse getPledgeStatuses(int fundId) {
-        QueryBuilder joinedPledges = select("id", "fund_id", "total_pledge", "pledge_start", "pledge_end").from("pledges")
+        QueryBuilder joinedPledges = select("id", "fund_id", "total_pledge", "pledge_start", "pledge_end", "org_id").from("pledges")
                 .where("pledge_end >= ?", convert(ZonedDateTime.now().withDayOfYear(1))).inOrg();
         if(fundId > 0)
             joinedPledges.with("fund_id", fundId);
@@ -38,8 +38,8 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
                 .select("(now() <= pledge_end and now() >= pledge_start) AS active")
                 .from("donations d")
                 .fullOuterJoin(joinedPledges, "p", "d.pledge_id=p.id")
-                .where("date >= ?", convert(ZonedDateTime.now().withDayOfYear(1)))
-                .or().where("pledge_end >= ?", convert(ZonedDateTime.now().withDayOfYear(1)))
+                .where("date >= ?", convert(ZonedDateTime.now().withDayOfYear(1))).inOrg("d.org_id")
+                .or().where("pledge_end >= ?", convert(ZonedDateTime.now().withDayOfYear(1))).inOrg("p.org_id")
                 .groupBy("d.pledge_id", "p.fund_id", "d.fund_id", "family_id", "pledge_start", "pledge_end", "total_pledge");
 
         QueryBuilder query = select("total_donations", "total_pledge", "pledge_start", "pledge_end")
