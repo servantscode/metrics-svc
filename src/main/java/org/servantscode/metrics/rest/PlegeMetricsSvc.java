@@ -48,8 +48,13 @@ public class PlegeMetricsSvc extends SCServiceBase {
     public DonationReport getYtdStatsByFund(@PathParam("fundId") int fundId) {
         verifyUserAccess("pledge.metrics");
         try {
-            LocalDate yearStart = LocalDate.now().withDayOfYear(1);
-            return new PledgeMetricsDB().getDonationStats(yearStart, yearStart.plusYears(1).minusDays(1), fundId);
+            PledgeMetricsDB db = new PledgeMetricsDB();
+            int startMonth = db.getFyStartMonth();
+            LocalDate yearStart = LocalDate.now().withMonth(startMonth).withDayOfMonth(1);
+            if(yearStart.isAfter(LocalDate.now()))
+                yearStart = yearStart.minusYears(1);
+
+            return db.getDonationStats(yearStart, yearStart.plusYears(1).minusDays(1), fundId);
         } catch (Throwable t) {
             LOG.error("Failed to generate donation metrics.", t);
             throw t;

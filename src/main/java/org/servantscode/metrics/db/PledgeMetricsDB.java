@@ -3,12 +3,14 @@ package org.servantscode.metrics.db;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.servantscode.commons.search.QueryBuilder;
+import org.servantscode.commons.security.OrganizationContext;
 import org.servantscode.metrics.MonthlyDonations;
 import org.servantscode.metrics.PledgeMetricsResponse;
 import org.servantscode.metrics.DonationReport;
 import org.servantscode.metrics.util.AbstractBucket;
 import org.servantscode.metrics.util.Collector;
 
+import javax.xml.transform.Result;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -30,20 +32,10 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     }
 
     public PledgeMetricsResponse getPledgeStatuses(int fundId) {
-        ZonedDateTime start = ZonedDateTime.now().withMonth(1).withDayOfMonth(1).truncatedTo(DAYS);
-
-        QueryBuilder joinedPledges = select("id", "fund_id", "total_pledge", "pledge_start", "pledge_end", "org_id").from("pledges")
-                .where("pledge_end >= ?", convert(start)).inOrg();
-        if(fundId > 0)
-            joinedPledges.with("fund_id", fundId);
-
-        QueryBuilder funds = select("COALESCE(d.fund_id, p.fund_id) AS fund_id", "family_id", "sum(amount) AS total_donations", "pledge_id", "total_pledge", "pledge_start", "pledge_end")
-                .select("(now() <= pledge_end and now() >= pledge_start) AS active")
-                .from("donations d")
-                .fullOuterJoin(joinedPledges, "p", "d.pledge_id=p.id")
-                .where("date >= ?", convert(start)).inOrg("d.org_id")
-                .or().where("pledge_end >= ?", convert(start)).where("d.amount IS NULL").inOrg("p.org_id")
-                .groupBy("d.pledge_id", "p.fund_id", "d.fund_id", "family_id", "pledge_start", "pledge_end", "total_pledge");
+        QueryBuilder donations = select("p.id", "p.fund_id", "total_pledge", "pledge_start", "pledge_end", "p.org_id", "SUM(d.amount) AS total_donations")
+                .from("pledges p").leftJoin("donations d ON p.id=d.pledge_id")
+                .where("pledge_end >= ?", LocalDate.now()).inOrg("p.org_id")
+                .groupBy("p.id");
 
         QueryBuilder query = select("total_donations", "total_pledge", "pledge_start", "pledge_end")
                 .select("total_donations/total_pledge AS collected_pct")
@@ -51,7 +43,7 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
                 //Alas... still on 11.5 in production
                 //.select("(current_date - pledge_start)*1.0/(pledge_end - pledge_start) AS time_pct")
                 .select("(EXTRACT(epoch from current_date) - EXTRACT(EPOCH FROM pledge_start))*1.0/(EXTRACT(EPOCH FROM pledge_end) - EXTRACT(EPOCH FROM pledge_start)) AS time_pct")
-                .from(funds, "d");
+                .from(donations, "d");
         if(fundId > 0)
             query.with("fund_id", fundId);
 
@@ -68,12 +60,9 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
              PreparedStatement stmt = finalQuery.prepareStatement(conn)) {
 
             List<AbstractBucket> buckets = generateDivisions();
-            PledgeCollector coll = new PledgeCollector(start.toLocalDate());
+            PledgeCollector coll = new PledgeCollector();
             PledgeMetricsResponse resp = (PledgeMetricsResponse) generateResults(stmt, buckets, false, new PledgeMetricsResponse(), coll);
-            resp.setDonationsToDate(coll.donations);
-            resp.setTotalPledges(coll.pledges);
             resp.setPledgedDonations(coll.pledgedDonations);
-            resp.setUnpledgedDonations(coll.unpledgedDonations);
             resp.setPledgedTarget(coll.pledgedTarget);
             return resp;
         } catch (SQLException e) {
@@ -140,11 +129,25 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         }
     }
 
+    public int getFyStartMonth() {
+        QueryBuilder query = select("fy_start_month").from("parishes").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if(!rs.next())
+                throw new RuntimeException("Could not retrieve fiscal year start.");
+
+            return rs.getInt("fy_start_month");
+        } catch (SQLException e) {
+            throw new RuntimeException("Could not retrieve fiscal year start.");
+        }
+    }
+
     // ----- Private -----
     class PledgeCurrentBucket extends AbstractBucket {
         private final String status;
 
-//        private PledgeCurrentBucket (String description, float startScore, float endScore) {
         private PledgeCurrentBucket (String description, String status) {
             super(description);
             this.status = status;
@@ -157,42 +160,27 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
     }
 
     class PledgeCollector implements Collector {
-        float donations = 0;
-        float pledges = 0;
         float pledgedDonations = 0;
-        float unpledgedDonations = 0;
         float pledgedTarget = 0;
 
-        LocalDate startDate;
-
-        public PledgeCollector(LocalDate start) {
-            this.startDate = start;
-        }
+        public PledgeCollector() {}
 
         @Override
         public void collect(ResultSet rs) throws SQLException {
             float pledged = rs.getFloat("total_pledge");
             float total_donations = rs.getFloat("total_donations");
-            donations += total_donations;
-            pledges += pledged;
             if(pledged > 0) {
                 LocalDate pledgeStart = convert(rs.getDate("pledge_start"));
-                pledgeStart = pledgeStart.isBefore(startDate)? startDate: pledgeStart;
 
                 LocalDate pledgeEnd = convert(rs.getDate("pledge_end"));
-                LocalDate endOfYear = startDate.plusYears(1);
-                pledgeEnd = pledgeEnd.isAfter(endOfYear)? endOfYear: pledgeEnd;
 
                 long daysInPledge = DAYS.between(pledgeStart, pledgeEnd);
                 long daysSinceStart = Math.min(DAYS.between(pledgeStart, LocalDate.now()), daysInPledge);
 
                 if(daysSinceStart > 0)
-                    pledgedTarget += (rs.getFloat("total_pledge") * ((daysSinceStart*1.0)/daysInPledge));
+                    pledgedTarget += pledged * ((daysSinceStart*1.0)/daysInPledge);
 
                 pledgedDonations += Math.min(total_donations, pledged);
-                unpledgedDonations += Math.max(0, total_donations - pledged);
-            } else {
-                unpledgedDonations += total_donations;
             }
         }
     }
@@ -205,7 +193,6 @@ public class PledgeMetricsDB extends AbstractMetricsDB {
         buckets.add(new PledgeCurrentBucket("Slightly behind", "SLIGHTLY_BEHIND"));
         buckets.add(new PledgeCurrentBucket("Current", "CURRENT"));
         buckets.add(new PledgeCurrentBucket("Completed", "COMPLETED"));
-//        buckets.add(new PledgeCurrentBucket("Unpledged", "UNPLEDGED"));
 
         return buckets;
     }
