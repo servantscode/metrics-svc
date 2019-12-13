@@ -4,12 +4,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.servantscode.commons.rest.ReportListStreamingOutput;
 import org.servantscode.commons.rest.SCServiceBase;
+import org.servantscode.metrics.DonationReport;
 import org.servantscode.metrics.MonthlyDonations;
 import org.servantscode.metrics.PledgeMetricsResponse;
 import org.servantscode.metrics.db.PledgeMetricsDB;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
+import java.time.LocalDate;
 import java.util.List;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -22,14 +24,7 @@ public class PlegeMetricsSvc extends SCServiceBase {
 
     @GET @Path("/status") @Produces(APPLICATION_JSON)
     public PledgeMetricsResponse getPledgeMetrics() {
-        verifyUserAccess("pledge.metrics");
-        try {
-            LOG.debug("Retrieving pledge metrics.");
-            return new PledgeMetricsDB().getPledgeStatuses();
-        } catch (Throwable t) {
-            LOG.error("Failed to generate pledge metrics.", t);
-            throw t;
-        }
+        return getPledgeMetricsByFund(0);
     }
 
     @GET @Path("/status/fund/{fundId}") @Produces(APPLICATION_JSON)
@@ -43,6 +38,24 @@ public class PlegeMetricsSvc extends SCServiceBase {
             throw t;
         }
     }
+
+    @GET @Path("/ytd") @Produces(APPLICATION_JSON)
+    public DonationReport getYtdStats() {
+        return getYtdStatsByFund(0);
+    }
+
+    @GET @Path("/ytd/fund/{fundId}") @Produces(APPLICATION_JSON)
+    public DonationReport getYtdStatsByFund(@PathParam("fundId") int fundId) {
+        verifyUserAccess("pledge.metrics");
+        try {
+            LocalDate yearStart = LocalDate.now().withDayOfYear(1);
+            return new PledgeMetricsDB().getDonationStats(yearStart, yearStart.plusYears(1).minusDays(1), fundId);
+        } catch (Throwable t) {
+            LOG.error("Failed to generate donation metrics.", t);
+            throw t;
+        }
+    }
+
 
     @GET @Path("/{window}ly") @Produces({APPLICATION_JSON, TEXT_PLAIN, TEXT_CSV})
     public Response getMonthlyDonations(@PathParam("window") String windowSize,
