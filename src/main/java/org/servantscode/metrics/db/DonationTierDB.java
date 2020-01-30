@@ -14,19 +14,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class DonationTierDB extends DBAccess {
     private static final Logger LOG = LogManager.getLogger(DonationTierDB.class);
 
-    public DonationTierReport getDonationStats() {
-        LocalDate start = LocalDate.now().withDayOfYear(1).minusYears(1);
-        LocalDate end = start.plusYears(1).minusDays(1);
+    public DonationTierReport getDonationStats(int year) {
+        LocalDate start = LocalDate.of(year, 1, 1);
+        LocalDate end = LocalDate.of(year, 12, 31);
         QueryBuilder query = select("f.surname", "f.id", "sum(d.amount) as total_donations")
                             .from("donations d")
                 .leftJoin("families f ON d.family_id=f.id")
                 .where("date >= ? and date <= ?",  start, end).inOrg("d.org_id")
-//                .where("f.surname <> ?",  "Cash").where("f.surname <> ?",  "Check")
                 .groupBy("f.id");
         try (Connection conn = getConnection();
              PreparedStatement stmt = query.prepareStatement(conn);
@@ -44,9 +44,8 @@ public class DonationTierDB extends DBAccess {
                     }
                 }
 
-                if(!found) {
+                if(!found)
                     LOG.warn(String.format("Could not find bucket for donations from family %s. Total donations: %.2f", rs.getString("surname"), rs.getFloat("total_donations")));
-                }
 
                 collector.collect(rs);
             }
@@ -58,6 +57,23 @@ public class DonationTierDB extends DBAccess {
             return report;
         } catch (SQLException e) {
             throw new RuntimeException("Could generate donation tier report.", e);
+        }
+    }
+
+    public List<Integer> availableDonationYears() {
+        QueryBuilder query = select("DISTINCT EXTRACT('year' FROM date)").from("donations").inOrg();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = query.prepareStatement(conn);
+             ResultSet rs = stmt.executeQuery()){
+
+            ArrayList<Integer> years = new ArrayList<>(10);
+            while(rs.next())
+                years.add(rs.getInt(1));
+
+            years.sort(Comparator.comparingInt(a -> -a));
+            return years;
+        } catch (SQLException e) {
+            throw new RuntimeException("Could get list of years with donations.", e);
         }
     }
 
@@ -127,7 +143,7 @@ public class DonationTierDB extends DBAccess {
         buckets.add(new DonationRangeBucket(5000.01f, 10000f));
         buckets.add(new DonationRangeBucket(10000.01f, 15000f));
         buckets.add(new DonationRangeBucket(15000.01f, 20000f));
-        buckets.add(new DonationRangeBucket(20000.01f, 10000000f));
+        buckets.add(new DonationRangeBucket(20000.01f, 100000000f));
 
         return buckets;
     }

@@ -1,7 +1,6 @@
 package org.servantscode.metrics;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -11,7 +10,7 @@ public class DonationTierReport {
     private float averageFamilyDonation;
     private LocalDate startDate;
     private LocalDate endDate;
-    private List<DonationTier> data = new LinkedList<>();
+    private List<DonationTier> tiers = new LinkedList<>();
 
     public DonationTierReport(int totalFamilies, float totalDonations, LocalDate startDate, LocalDate endDate) {
         this.totalFamilies = totalFamilies;
@@ -53,7 +52,7 @@ public class DonationTierReport {
     }
 
     public void addData(String data, int families, float donations) {
-        this.data.add(new DonationTier(data, families, (families * 100f)/totalFamilies, donations, (donations * 100f)/totalDonations));
+        this.tiers.add(new DonationTier(data, families, (families * 100f)/totalFamilies, donations, (donations * 100f)/totalDonations));
     }
 
     // ----- Accessors -----
@@ -72,6 +71,6 @@ public class DonationTierReport {
     public LocalDate getEndDate() { return endDate; }
     public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
 
-    public List<DonationTier> getData() { return data; }
-    public void setData(List<DonationTier> data) { this.data = data; }
+    public List<DonationTier> getTiers() { return tiers; }
+    public void setTiers(List<DonationTier> tiers) { this.tiers = tiers; }
 }
